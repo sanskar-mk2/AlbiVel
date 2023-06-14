@@ -1,25 +1,26 @@
 <x-guest-layout>
-    <form class="flex items-center gap-4"
+    <form class="flex flex-col gap-2"
         method="GET" action="{{ route('pbt') }}">
-        <select name="from">
-            <option value="">From</option>
-            @foreach($froms as $from)
-                <option @selected($from == $from_s)
-                    value="{{ $from }}">{{ $from }}</option>
-            @endforeach
-        </select>
-        <select name="to">
-            <option value="">To</option>
-            @foreach($tos as $to)
-                <option @selected($to == $to_s)
-                    value="{{ $to }}">{{ $to }}</option>
-            @endforeach
-        </select>
+        <div class="flex gap-4 items-center">
         <label for="flat">Flat Profit Sort</label>
         <input type="checkbox" name="flat" id="flat" @checked($flat) />
         <button class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
             Submit
         </button>
+        </div>
+        <div>
+        {{-- Checkbox for froms and tos --}}
+        @foreach($cities as $city)
+            <input type="checkbox" name="froms[]" value="{{ $city }}" @checked(in_array($city, $froms)) />
+            <label for="froms[]">{{ $city }}</label>
+        @endforeach
+        </div>
+        <div>
+        @foreach($cities as $city)
+            <input type="checkbox" name="tos[]" value="{{ $city }}" @checked(in_array($city, $tos)) />
+            <label for="tos[]">{{ $city }}</label>
+        @endforeach
+        </div>
     </form>
     <table class="table">
         <thead>

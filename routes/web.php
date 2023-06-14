@@ -17,31 +17,59 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::get('/', function () {
+    # get search
+    $search = request()->query('search');
+    $exploded = explode(' ', $search);
+    if (count($exploded) > 1) {
+        $item = $exploded[0];
+        $quality = $exploded[1];
+        $tier_enchantment = explode('.', $quality);
+        $tier = $tier_enchantment[0];
+        $enchantment = $tier_enchantment[1] ?? null;
+    } else if (count($exploded) == 1) {
+        $item = $exploded[0];
+        $tier = null;
+        $enchantment = null;
+    } else {
+        $item = null;
+        $tier = null;
+        $enchantment = null;
+    }
+
     # sorted by Utc column, get the first 100 rows
-    $albions = Albion::orderBy('Utc', 'desc')->take(100)->get();
-    # get all unique ItemTypeId
-    $human_names = AlbionItem::whereIn('machine_name', $albions->pluck('ItemTypeId')->unique())->get();
-    #map human names to ItemTypeId
-    $albions->map(function ($albion) use ($human_names) {
-        $albion->human_name = $human_names->where('machine_name', $albion->ItemTypeId)->first()->human_name ?? $albion->ItemTypeId;
-        return $albion;
-    });
-    $data = compact('albions');
+    $albions = Albion::orderBy('Utc', 'desc')
+        ->join('albion_items', 'albion_table.ItemTypeId', '=', 'albion_items.machine_name')
+        ->when($item, function ($query, $item) {
+            return $query->where('albion_items.human_name', 'like', '%' . $item . '%');
+        })->when($tier, function ($query, $tier) {
+            return $query->where('albion_table.Tier', $tier);
+        })->when($enchantment, function ($query, $enchantment) {
+            return $query->where('albion_table.EnchantmentLevel', $enchantment);
+        })
+        ->take(100)
+        ->get();
+
+    $data = compact('albions', 'search');
     return view('albion')->with($data);
-});
+})->name('albion');
 
 Route::get('/pbt', function () {
+    # get froms and tos city arrays from request
+    $froms = request()->query('froms') ?? [];
+    $tos = request()->query('tos') ?? [];
 
     # get all unique ItemTypeId
     $items = Albion::pluck('ItemTypeId')->unique();
 
+    $cities = Albion::pluck('Location')->unique();
+
     # find the lowest UnitPriceSilver for AuctionType = offer for each ItemTypeId And Store along with Location and Utc
     $lowest_offer = Albion::where('AuctionType', 'offer')
-        // ->where('Location', '!=', 'Caerleon')
+        ->whereIn('Location', $froms)
         ->orderBy('UnitPriceSilver', 'asc')->get()->unique('ItemTypeId');
 
     $highest_request = Albion::where('AuctionType', 'request')
-        // ->where('Location', '!=', 'Caerleon')
+        ->whereIn('Location', $tos)
         ->orderBy('UnitPriceSilver', 'desc')->get()->unique('ItemTypeId');
 
     # calculate profit before tax for each item, store along with from and to location, utc
@@ -64,9 +92,9 @@ Route::get('/pbt', function () {
         }
     }
 
-    # remove if from and to location are same
+    # get rid of negative profits
     foreach ($pbt as $key => $value) {
-        if ($value['from'] == $value['to']) {
+        if ($value['profit'] < 0) {
             unset($pbt[$key]);
         }
     }
@@ -83,36 +111,9 @@ Route::get('/pbt', function () {
         });
     }
 
-    # get rid of negative profits
-    foreach ($pbt as $key => $value) {
-        if ($value['profit'] < 0) {
-            unset($pbt[$key]);
-        }
-    }
-
-    # unique froms
-    $froms = array_unique(array_column($pbt, 'from'));
-    # unique tos
-    $tos = array_unique(array_column($pbt, 'to'));
-
-    # if from and/or to querystring is set, filter pbt
-    if (request()->query('from')) {
-        $pbt = array_filter($pbt, function ($pbt) {
-            return $pbt['from'] == request()->query('from');
-        });
-    }
-
-    if (request()->query('to')) {
-        $pbt = array_filter($pbt, function ($pbt) {
-            return $pbt['to'] == request()->query('to');
-        });
-    }
-
-    $from_s = request()->query('from') ?? '';
-    $to_s = request()->query('to') ?? '';
     $flat = request()->query('flat') ?? '';
 
-    return view('pbt')->with(compact('pbt', 'froms', 'tos', 'from_s', 'to_s', 'flat'));
+    return view('pbt')->with(compact('pbt', 'flat', 'cities', 'froms', 'tos'));
 })->name('pbt');
 
 

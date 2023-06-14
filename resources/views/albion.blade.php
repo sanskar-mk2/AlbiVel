@@ -1,4 +1,11 @@
 <x-guest-layout>
+    {{-- Search --}}
+    <form method="GET" action="{{ route('albion') }}">
+        <input type="search" name="search" id="search" value="{{ $search }}" />
+        <button class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+            Submit
+        </button>
+    </form>
     <table class="table">
         <thead>
             <tr>
@@ -32,7 +39,7 @@
                     <td class="border border-black">{{ $albion->EnchantmentLevel }}</td>
                     <td class="border border-black">{{ $albion->QualityLevel }}</td>
                     <td class="border border-black">{{ $albion->Location }}</td>
-                    <td class="border border-black">{{ $albion->Utc }}</td>
+                    <td class="border border-black">{{ $albion->getHumanUtc() }}</td>
                 </tr>
             @endforeach
         </tbody>
